@@ -98,19 +98,18 @@ func main() {
 				}
 			}
 			leftDiagIndex, rightDiagIndex := symbol.index-1, symbol.index+1
-			if leftDiagIndex <= width && (line+1) != height {
-				if parts := partIndexes[line+1]; len(parts) > 0 {
-					// fmt.Printf("Left Diagonal Part %v on %v for %v\n", part.number, line+2, symbol.symbol)
-				}
-			}
-			if rightDiagIndex <= width && (line-1) != height {
-				if parts := partIndexes[line+1]; len(parts) > 0 {
-					// fmt.Printf("Right Diagonal Part %v on %v for %v\n", part.number, line, symbol.symbol)
-				}
-			}
-			if under := line + 1; under <= height {
-				if parts := partIndexes[under]; len(parts) > 0 {
-
+			nextLine, prevLine := line+1, line-1
+			for _, newLine := range []int{nextLine, prevLine} {
+				if newLine <= height {
+					for _, diagIndex := range []int{leftDiagIndex, rightDiagIndex} {
+						if diagIndex <= width {
+							if parts := partIndexes[newLine]; len(parts) > 0 {
+								for _, part := range parts.match(diagIndex) {
+									fmt.Printf("Diagonal Part %v on %v for %v\n", part.number, newLine+1, symbol.symbol)
+								}
+							}
+						}
+					}
 				}
 			}
 		}

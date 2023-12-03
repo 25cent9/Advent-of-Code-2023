@@ -2,8 +2,11 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 )
 
 type color int
@@ -14,15 +17,45 @@ const (
 	green
 )
 
-type session struct {
-	green int
-	blue  int
-	red   int
+var (
+	stringToColor = map[string]color{
+		"red":   red,
+		"blue":  blue,
+		"green": green,
+	}
+	colorToString = map[color]string{
+		red:   "red",
+		blue:  "blue",
+		green: "green",
+	}
+	colorConstraints = map[color]int{
+		red:   12,
+		green: 13,
+		blue:  14,
+	}
+)
+
+type gameSession map[color]int
+
+func (gs gameSession) String() string {
+	out := ""
+	for color, count := range gs {
+		out += fmt.Sprintf("%s: %v\n", colorToString[color], count)
+	}
+	return out
 }
 
 type game struct {
 	number   int
-	sessions []session
+	sessions []gameSession
+}
+
+func (g *game) String() string {
+	out := fmt.Sprintf("Game %v\n", g.number)
+	for _, session := range g.sessions {
+		out += session.String()
+	}
+	return out
 }
 
 func main() {
@@ -32,13 +65,64 @@ func main() {
 	}
 	defer file.Close()
 
-	strs := []string{}
+	games := map[int]game{}
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		strs = append(strs, scanner.Text())
-	}
-	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
-	}
+		str := strings.Split(scanner.Text(), ": ")
+		gameStr := strings.Split(str[0], " ")
+		cubeDrawStr := str[1]
 
+		gameSessions := []gameSession{}
+		fmt.Printf("%s\n", gameStr)
+		for _, cubeDraws := range strings.Split(cubeDrawStr, "; ") {
+			fmt.Printf("%s\n", cubeDraws)
+			sesh := make(gameSession)
+			for _, cubeDraw := range strings.Split(cubeDraws, ", ") {
+				draw := strings.Split(cubeDraw, " ")
+				numCubes, err := strconv.Atoi(draw[0])
+				if err != nil {
+					log.Fatal(err)
+				}
+				sesh[stringToColor[draw[1]]] = numCubes
+			}
+			gameSessions = append(gameSessions, sesh)
+		}
+
+		if err := scanner.Err(); err != nil {
+			log.Fatal(err)
+		}
+		gameNum, err := strconv.Atoi(gameStr[1])
+		if err != nil {
+			log.Fatal(err)
+		}
+		games[gameNum] = game{
+			number:   gameNum,
+			sessions: gameSessions,
+		}
+	}
+	possilbeGames := map[int]bool{}
+	powerSets := map[int]int{}
+	for _, game := range games {
+		possible := true
+		cubePowerSet := 1
+		for _, session := range game.sessions {
+			for cubeColor, num := range session {
+				if constraint := colorConstraints[cubeColor]; num > constraint {
+					possible = false
+				}
+				cubePowerSet *= num
+			}
+		}
+		if possible {
+			possilbeGames[game.number] = true
+			powerSets[game.number] = cubePowerSet
+		}
+	}
+	sum := 0
+	powerSetSum := 0
+	for game := range possilbeGames {
+		sum += game
+		powerSetSum += powerSets[game]
+	}
+	fmt.Printf("Final Sum: %v\nFinal Power Set sum: %v\n", sum, powerSetSum)
 }

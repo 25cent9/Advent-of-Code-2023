@@ -73,9 +73,7 @@ func main() {
 		cubeDrawStr := str[1]
 
 		gameSessions := []gameSession{}
-		fmt.Printf("%s\n", gameStr)
 		for _, cubeDraws := range strings.Split(cubeDrawStr, "; ") {
-			fmt.Printf("%s\n", cubeDraws)
 			sesh := make(gameSession)
 			for _, cubeDraw := range strings.Split(cubeDraws, ", ") {
 				draw := strings.Split(cubeDraw, " ")
@@ -101,28 +99,37 @@ func main() {
 		}
 	}
 	possilbeGames := map[int]bool{}
-	powerSets := map[int]int{}
+	cubeMins := map[int]map[color]int{}
 	for _, game := range games {
 		possible := true
-		cubePowerSet := 1
+		minCubes := make(map[color]int)
 		for _, session := range game.sessions {
 			for cubeColor, num := range session {
+				if val := minCubes[cubeColor]; val < num {
+					minCubes[cubeColor] = num
+				}
 				if constraint := colorConstraints[cubeColor]; num > constraint {
 					possible = false
 				}
-				cubePowerSet *= num
 			}
 		}
 		if possible {
 			possilbeGames[game.number] = true
-			powerSets[game.number] = cubePowerSet
 		}
+		cubeMins[game.number] = minCubes
 	}
 	sum := 0
-	powerSetSum := 0
 	for game := range possilbeGames {
 		sum += game
-		powerSetSum += powerSets[game]
 	}
-	fmt.Printf("Final Sum: %v\nFinal Power Set sum: %v\n", sum, powerSetSum)
+	powerSetSum := 0
+
+	for _, mins := range cubeMins {
+		powerSet := 1
+		for _, min := range mins {
+			powerSet *= min
+		}
+		powerSetSum += powerSet
+	}
+	fmt.Printf("Final Possible Game Sum: %v\nFinal Min Cube Powerset: %v\n", sum, powerSetSum)
 }

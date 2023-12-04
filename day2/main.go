@@ -7,6 +7,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 type numIndex struct {
@@ -15,6 +16,8 @@ type numIndex struct {
 }
 
 type numberIndexes []numIndex
+
+var debugStrs = make(map[string][]string)
 
 func (i numberIndexes) match(index int) numberIndexes {
 	indexes := numberIndexes{}
@@ -29,6 +32,7 @@ func (i numberIndexes) match(index int) numberIndexes {
 func extractNumberIndexes(input string) numberIndexes {
 	indexes := numberIndexes{}
 	pattern := `\d+`
+	// fmt.Printf("Matches: %v\n", input)
 	re := regexp.MustCompile(pattern)
 	for _, match := range re.FindAllStringIndex(input, -1) {
 		start, end := match[0], match[1]
@@ -36,6 +40,7 @@ func extractNumberIndexes(input string) numberIndexes {
 		if err != nil {
 			log.Fatal(err)
 		}
+		// fmt.Printf("Mach: {%v: %v - %v}\n", num, start, end)
 		index := numIndex{
 			number: num,
 			start:  start,
@@ -64,6 +69,17 @@ func extractSymbolIndexes(input string) symbolIndexes {
 	return indexes
 }
 
+type lineTracker map[string]int
+
+func (l lineTracker) at(line int) string {
+	for text, num := range l {
+		if num == line {
+			return text
+		}
+	}
+	return ""
+}
+
 func main() {
 	file, err := os.Open("input.txt")
 	if err != nil {
@@ -71,7 +87,7 @@ func main() {
 	}
 	defer file.Close()
 
-	strs := []string{}
+	strs := make(lineTracker)
 	partIndexes := make(map[int]numberIndexes)
 	symbolIndexes := map[int]symbolIndexes{}
 	scanner := bufio.NewScanner(file)
@@ -80,32 +96,47 @@ func main() {
 		str := scanner.Text()
 		partIndexes[lineCount] = extractNumberIndexes(str)
 		symbolIndexes[lineCount] = extractSymbolIndexes(str)
-		strs = append(strs, str)
+		strs[str] = lineCount
 		lineCount++
 	}
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
-	width, height := len(strs[0]), len(strs)
+	width, height := len(strs), len(strs)
+	// fmt.Printf("WxH: %vx%v\n", width, height)
+	allParts := []int{}
 	for line, symbols := range symbolIndexes {
-		fmt.Printf("Line %v:\n", line+1)
+		// fmt.Printf("Line %v:\n", line+1)
 		for _, symbol := range symbols {
 			// fmt.Printf("Symbol %v [%v]\n", symbol.symbol, symbol.index)
 			// Check on the same line
 			if parts := partIndexes[line]; len(parts) > 0 {
 				for _, part := range parts.match(symbol.index) {
-					fmt.Printf("Adjacent Part %v on %v for %v\n", part.number, line+1, symbol.symbol)
+					msg := fmt.Sprintf("Adjacent Part Match: {%v: %v - %v}", part.number, part.start, part.end)
+					allParts = append(allParts, part.number)
+					debugStrs[strs.at(line)] = append(debugStrs[strs.at(line)], msg)
+					// fmt.Printf("Adjacent Part %v on %v for %v\n", part.number, line+1, symbol.symbol)
 				}
 			}
 			leftDiagIndex, rightDiagIndex := symbol.index-1, symbol.index+1
 			nextLine, prevLine := line+1, line-1
 			for _, newLine := range []int{nextLine, prevLine} {
-				if newLine <= height {
+				if newLine != -1 && newLine < height {
 					for _, diagIndex := range []int{leftDiagIndex, rightDiagIndex} {
-						if diagIndex <= width {
+						if diagIndex < width && diagIndex >= 0 {
 							if parts := partIndexes[newLine]; len(parts) > 0 {
+								matchingParts := map[int]bool{}
 								for _, part := range parts.match(diagIndex) {
-									fmt.Printf("Diagonal Part %v on %v for %v\n", part.number, newLine+1, symbol.symbol)
+									if _, ok := matchingParts[part.number]; !ok {
+										matchingParts[part.number] = true
+										matchLine := strs.at(newLine)
+										msg := fmt.Sprintf("Diagonal Part Match for %v on line %v: {%v: %v - %v}\n%s", symbol.symbol, newLine+1, part.number, part.start, part.end, matchLine)
+										// allParts = append(allParts, part.number)
+										debugStrs[strs.at(line)] = append(debugStrs[strs.at(line)], msg)
+									}
+								}
+								for part := range matchingParts {
+									allParts = append(allParts, part)
 								}
 							}
 						}
@@ -114,4 +145,13 @@ func main() {
 			}
 		}
 	}
+	partSum := 0
+	for _, part := range allParts {
+		partSum += part
+	}
+	for line, msgs := range debugStrs {
+		fmt.Printf("\n--------\n%v\n--------\n%v", line, strings.Join(msgs, "\n"))
+	}
+	fmt.Printf("All Parts: %v\nPart Sum: %v", allParts, partSum)
+
 }
